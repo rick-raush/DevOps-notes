@@ -1,0 +1,22 @@
+# macOS system files
+.DS_Store
+
+# Joplin temp and lock files (if you accidentally sync here)
+locks/
+temp/
+
+# Logs or crash reports
+*.log
+
+# Node or Python (if you later use scripts here)
+node_modules/
+__pycache__/
+
+# Backup or cache files
+*.bak
+*.tmp
+
+# Ignore hidden swap or editor temp files
+*~
+*.swp
+
