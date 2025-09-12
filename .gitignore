@@ -23,3 +23,5 @@ __pycache__/
 #Task folder is ignored and has data related to tasks
 Tasks/
 
+sync_notes_togit.sh
+
