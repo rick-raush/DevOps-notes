@@ -20,8 +20,9 @@ __pycache__/
 *~
 *.swp
 
-#Task folder is ignored and has data related to tasks
+#Task folder is ignored(has data related to tasks)
 Tasks/
 
+#Automation script for exporting and pushing to git hub
 sync_notes_togit.sh
 
