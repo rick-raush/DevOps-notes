@@ -956,10 +956,6 @@ Then recreate the namespace if needed.
 
 &nbsp;
 
-&nbsp;
-
-&nbsp;
-
 * * *
 
 # 3\. **LoadBalancer (Cloud-provider managed LB)**
@@ -967,6 +963,8 @@ Then recreate the namespace if needed.
 * * *
 
 # 4\. **ExternalName (DNS alias to external service)**
+
+&nbsp;
 
 &nbsp;
 

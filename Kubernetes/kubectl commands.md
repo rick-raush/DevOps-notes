@@ -98,7 +98,7 @@ kubectl apply -f pod.yaml
 
 * * *
 
-&nbsp;my name is 
+&nbsp;
 
 &nbsp;
 
