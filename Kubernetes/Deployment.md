@@ -490,4 +490,279 @@ spec:                        # <-- The main Deployment spec
 
 &nbsp;
 
+**Default values** in a Kubernetes Deployment for rollout strategy parameters:
+
+* * *
+
+## ✅ Default Rolling Update Strategy in Deployments
+
+When you create a Deployment and do **not** explicitly specify the `strategy`, Kubernetes uses the following defaults:
+
+### 🧠 **Default `strategy.type`**
+
+```yaml
+strategy:
+  type: RollingUpdate
+```
+
+> This means rolling updates are the default — **Kubernetes does not recreate all pods at once** unless you change the strategy to `Recreate`.
+
+* * *
+
+## 🔧 Default `maxSurge` and `maxUnavailable`
+
+When using the default `RollingUpdate` strategy and you **do not set** `maxSurge` and `maxUnavailable`, the following defaults apply:
+
+| Field | Default Value |
+| --- | --- |
+| `maxSurge` | `25%` |
+| `maxUnavailable` | `25%` |
+
+So for example, if your Deployment has `replicas: 4`:
+
+- **maxSurge 25%** → Kubernetes can create **1 extra pod** (25% of 4)
+    
+- **maxUnavailable 25%** → Kubernetes can take **1 pod offline** at a time during the rollout
+    
+
+> These defaults are balanced for **safe, gradual rollouts** with minimal downtime.
+
+&nbsp;
+
+&nbsp;
+
+* * *
+
+## ✅ 1. **How to Add a Message to a Rollout Revision**
+
+Kubernetes **doesn’t natively support custom messages** per rollout revision (like Git commit messages). However, there are a couple of **workarounds** to annotate your rollout:
+
+### ✅ Workaround: Use annotations to record messages
+
+You can add an annotation to your Deployment to describe the change.
+
+**Add a rollout message (change cause)** directly in a **Deployment YAML** file and have it show up in the rollout history.
+
+* * *
+
+## ✅ YAML with Annotation for Rollout Message
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: firstdeploy
+  annotations:  #<-----
+    kubernetes.io/change-cause: "Initial deployment with nginx 1.25"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25
+        ports:
+        - containerPort: 80
+```
+
+> 📝 The `kubernetes.io/change-cause` annotation is placed under `metadata` of the **Deployment**, not the Pod template.
+
+* * *
+
+## 🧪 Apply the Deployment
+
+```bash
+kubectl apply -f deployment1.yml
+```
+
+* * *
+
+## 🔍 View Rollout History with Message
+
+```bash
+kubectl rollout history deployment firstdeploy
+```
+
+You should see:
+
+```
+REVISION  CHANGE-CAUSE
+1         Initial deployment with nginx 1.25
+```
+
+* * *
+
+## 🧠 Tip for Future Updates
+
+If you update the deployment (e.g. image version), you can **add a new annotation before applying**, like this:
+
+```bash
+kubectl annotate deployment firstdeploy \
+  kubernetes.io/change-cause="Updated to nginx 1.26" --overwrite
+  
+kubectl set image deployment firstdeploy nginx=nginx:1.26
+```
+
+This ensures your **revision history includes meaningful messages**.
+
+```bash
+kubectl rollout history deployment firstdeploy
+```
+
+You’ll see:
+
+```
+REVISION  CHANGE-CAUSE
+1         Updated to version 1.26
+2         <none>
+```
+
+> 🔔 Tip: Add the annotation **before** or **as part of** applying the YAML to capture the reason.
+
+| Scenario | What happens? |
+| --- | --- |
+| You annotate **now**, then rollout later | The rollout revision will include the message you added *before* the rollout. |
+| You annotate **long ago**, then rollout | The rollout revision will use the *latest* annotation value at rollout time. |
+| You annotate **after** rollout | The annotation is updated on Deployment, but rollout history won’t change for past revisions. |
+
+* * *
+
+## ✅ 2. **How to Roll Back to a Specific Revision**
+
+Yes, your syntax is **almost correct**, just needs a small fix. ✅
+
+### Correct Command:
+
+```bash
+kubectl rollout undo deployment firstdeploy --to-revision=1
+```
+
+This command tells Kubernetes to **revert the Deployment** named `firstdeploy` back to **revision 1**.
+
+* * *
+
+## 🧪 Bonus: View All Rollout History
+
+```bash
+kubectl rollout history deployment firstdeploy
+```
+
+Output example:
+
+```
+REVISION  CHANGE-CAUSE
+1         Updated to version 1.25
+2         Rolled back to 1.25
+3         Updated env var
+```
+
+> Use this to choose the revision number for rollback.
+
+* * *
+
+## ✅ Summary
+
+| Action | Command |
+| --- | --- |
+| Add a rollout message | `kubectl annotate deployment <name> kubernetes.io/change-cause="..."` |
+| View history with messages | `kubectl rollout history deployment <name>` |
+| Roll back to previous rev | `kubectl rollout undo deployment <name>` |
+| Roll back to specific rev | `kubectl rollout undo deployment <name> --to-revision=<number>` |
+
+* * *
+
+&nbsp;
+
+Here's how you can **pause** and **resume** a rollout of a Kubernetes Deployment using `kubectl`.
+
+* * *
+
+## ⏸️ Pause Rollout
+
+### Command:
+
+```bash
+kubectl rollout pause deployment <deployment-name>
+```
+
+### Example:
+
+```bash
+kubectl rollout pause deployment firstdeploy
+```
+
+### ✅ What it does:
+
+- **Pauses** the rollout of a Deployment.
+    
+- Useful when you want to make **multiple changes** (like image + env vars) and then apply them **all at once**, instead of triggering separate rollouts for each.
+    
+- While paused, **no new Pods will be rolled out**, even if you change the Deployment spec.
+    
+
+* * *
+
+## ▶️ Resume Rollout
+
+### Command:
+
+```bash
+kubectl rollout resume deployment <deployment-name>
+```
+
+### Example:
+
+```bash
+kubectl rollout resume deployment firstdeploy
+```
+
+### ✅ What it does:
+
+- **Resumes** a paused rollout.
+    
+- If any spec changes were made while the rollout was paused, they will now be applied and the rollout will proceed.
+    
+
+* * *
+
+## 🧠 When to Use This?
+
+### 📌 Use `pause` when:
+
+- You want to **batch multiple changes** (e.g., image + config) into a single rollout.
+    
+- You're doing controlled testing or staging.
+    
+
+### 📌 Use `resume` when:
+
+- You're ready to apply the changes and proceed with the rollout.
+
+* * *
+
+## 🧪 Bonus: Check rollout status
+
+```bash
+kubectl rollout status deployment <deployment-name>
+```
+
+It will show:
+
+- `"paused"` if rollout is paused
+    
+- Progress messages if rollout is ongoing
+    
+- `"successfully rolled out"` when complete
+    
+
+* * *
+
+&nbsp;
+
 &nbsp;
