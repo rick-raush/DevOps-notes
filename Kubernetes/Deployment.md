@@ -765,4 +765,244 @@ It will show:
 
 &nbsp;
 
+### 🔄 Max Revisions of a Deployment — Kubernetes Context
+
+In **Kubernetes**, a **Deployment** automatically maintains a history of **previous ReplicaSet versions** (i.e., revisions) to support **rollbacks**.
+
+* * *
+
+## ✅ Default Behavior
+
+By default, Kubernetes keeps the **last 10 revisions** of a Deployment.
+
+This is controlled by the field:
+
+```yaml
+spec:
+  revisionHistoryLimit: 10
+```
+
+So, **at max, 10 old revisions** (replica sets) are stored unless you change this value.
+
+* * *
+
+## 🛠️ You Can Customize It
+
+You can increase or decrease this by setting `revisionHistoryLimit` in your Deployment YAML:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  revisionHistoryLimit: 5   # Keep only the last 5 revisions
+  ...
+```
+
+Set it to `0` if you **don’t want to keep any** old revisions (not recommended unless you're low on resources).
+
+* * *
+
+## 📌 Important Notes
+
+- Only **Deployments** and **DaemonSets** support `revisionHistoryLimit`.
+    
+- This affects the ability to **roll back** to previous versions.
+    
+- Each revision is stored as a **ReplicaSet**.
+    
+- If your deployment changes frequently, setting a **higher limit** helps with debugging and rollback but increases memory/etcd usage.
+    
+
+* * *
+
+## 🧠 TL;DR
+
+| Feature | Default | Customizable? | Max Limit |
+| --- | --- | --- | --- |
+| `revisionHistoryLimit` | 10 revisions | ✅ Yes | No hard max, but don’t set too high |
+
+* * *
+
+&nbsp;
+
+## 🔁 
+
+Sure! In **Kubernetes**, when you update a **Deployment**, there are two main strategies for how the update is rolled out:
+
+* * *
+
+## 🔄 1. **RollingUpdate Strategy** (default)
+
+### 📌 What it is:
+
+- **Gradually replaces** old Pods with new ones **without downtime**
+    
+- Keeps some old pods running while new ones come up
+    
+
+### ⚙️ How it works:
+
+- Creates a few new Pods (based on `maxSurge`)
+    
+- Waits until those are ready
+    
+- Deletes a few old Pods (based on `maxUnavailable`)
+    
+- Repeats until all Pods are updated
+    
+
+### 🔢 Configurable Parameters:
+
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1       # Max number of Pods that can be unavailable during the update
+    maxSurge: 1             # Max number of extra Pods (beyond desired) allowed during update
+```
+
+So if you have 5 Pods:
+
+- It might spin up 1 new Pod first (`maxSurge: 1`)
+    
+- Wait until it’s ready
+    
+- Then terminate 1 old Pod (`maxUnavailable: 1`)
+    
+- Continue until all Pods are replaced
+    
+
+### ✅ Pros:
+
+- No downtime
+    
+- Smooth update process
+    
+
+### ❌ Cons:
+
+- Both old and new versions run side-by-side temporarily
+    
+- May cause issues if your app can’t handle mixed versions
+    
+
+* * *
+
+# 🔁 **Recreate Strategy**
+
+### 📌 What it is:
+
+- **Deletes all old Pods first**, then **creates new ones**
+    
+- No overlap between old and new versions
+    
+
+### ⚙️ How it works:
+
+```yaml
+strategy:
+  type: Recreate
+```
+
+When applied:
+
+- All existing Pods are terminated
+    
+- Only then, new Pods are created
+    
+
+### ✅ Pros:
+
+- Clean version switch — only one version runs at a time
+    
+- Useful when your app **doesn’t support running old and new together**
+    
+
+### ❌ Cons:
+
+- Causes **downtime** (your app is completely down between delete and recreate)
+
+* * *
+
+## 🧠 Summary Table
+
+| Feature | RollingUpdate | Recreate |
+| --- | --- | --- |
+| Downtime | ❌ No | ✅ Yes (brief) |
+| Old + new run together | ✅ Yes | ❌ No |
+| Ideal for | Most web apps, stateless apps | Apps that can't run mixed versions |
+| Default strategy | ✅ Yes | ❌ No |
+| Configurable | `maxSurge`, `maxUnavailable` | No special config |
+
+* * *
+
+## 🛠 Example YAMLs
+
+### RollingUpdate:
+
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 1
+```
+
+### Recreate:
+
+```yaml
+strategy:
+  type: Recreate
+```
+
+* * *
+
+Let me know if you want:
+
+- A real-world example with logs
+    
+- How to trigger an update and monitor it live
+    
+- Or how to choose the best strategy for your workload
+    
+
+## **Recreate Strategy**
+
+### 📌 What it is:
+
+- **Deletes all old Pods first**, then **creates new ones**
+    
+- No overlap between old and new versions
+    
+
+### ⚙️ How it works:
+
+`strategy: type: Recreate`
+
+When applied:
+
+- All existing Pods are terminated
+    
+- Only then, new Pods are created
+    
+
+### ✅ Pros:
+
+- Clean version switch — only one version runs at a time
+    
+- Useful when your app **doesn’t support running old and new together**
+    
+
+### ❌ Cons:
+
+- Causes **downtime** (your app is completely down between delete and recreate)
+
+* * *
+
+&nbsp;
+
+&nbsp;
+
 &nbsp;
