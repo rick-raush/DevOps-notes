@@ -312,6 +312,12 @@ kubectl create deployment my-app --image=nginx
     - etcd (on control plane node)
         
 
+```bash
+#can see these using
+kubectl get pods -n kube-system
+
+```
+
 **⚠️ Do not modify resources here unless you know what you're doing.**
 
 * * *
