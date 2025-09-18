@@ -101,15 +101,22 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: mixed-quota
-  namespace: dev
+  namespace: dev   #<------the target namespace
 spec:
   hard:
-    pods: "20"
+    pods: "10"                         # Max number of pods
+    services: "5"                      # Max number of services
+    replicationcontrollers: "3"       # Max number of replication controllers
+    secrets: "10"                     # Max number of secrets
+    configmaps: "10"                  # Max number of configmaps
+    persistentvolumeclaims: "5"       # Max number of PVCs
+    statefulsets.apps: "3"            # Max number of StatefulSets (note the '.apps' suffix)
+    deployments.apps: "4"              # Max number of Deployments (note the '.apps' suffix)
+
     requests.cpu: "4"
     limits.cpu: "8"
     requests.memory: "8Gi"
     limits.memory: "16Gi"
-    persistentvolumeclaims: "5"
     requests.storage: "100Gi"
 ```
 
@@ -129,10 +136,280 @@ spec:
 
 &nbsp;
 
-(\*\*\*\*)If a user defines only resource limits and not resource requests for a container within a Kubernetes Pod, and a ResourceQuota is in place in that namespace, Kubernetes will automatically assign resource requests that match the defined limits.
+&nbsp;
 
-This means that if a container specifies a CPU limit but no CPU request, Kubernetes will set the CPU request to be equal to the CPU limit. The same applies to memory: if a memory limit is specified without a memory request, the memory request will be automatically set to the memory limit.
+&nbsp;
 
-This automatic assignment ensures that the Pod still has resource requests defined, which are necessary for the Kubernetes scheduler to make informed decisions about where to place the Pod and to enforce the ResourceQuota. The ResourceQuota will then count these automatically assigned requests against the quota limits defined for the namespace.
+# Automatic Assignment of Resource Requests in Kubernetes
+
+### Key behavior:
+
+- **If a container specifies a CPU or memory *limit* but does NOT specify a corresponding *request*, Kubernetes automatically sets the *request* equal to the *limit*.**
+
+* * *
+
+### Why does Kubernetes do this?
+
+- The **scheduler needs resource requests** to decide where to place Pods.
+    
+- The **ResourceQuota enforcement requires requests to be defined** to track resource usage accurately.
+    
+- Automatically assigning requests equal to limits **ensures Pods have valid requests**, even if you omit them explicitly.
+    
+
+&nbsp;
+
+&nbsp;
+
+**`LimitRange` and `ResourceQuota` are deeply connected** in Kubernetes.
+
+Let’s clarify their relationship step by step:
+
+* * *
+
+## ✅ **LimitRange came into the picture because ResourceQuota needs requests/limits to enforce quotas**
+
+### 💡 Here's the situation:
+
+### 🟨 Problem:
+
+When using a **`ResourceQuota`**, for example:
+
+```yaml
+spec:
+  hard:
+    requests.cpu: "4"
+    limits.cpu: "8"
+```
+
+Then **every Pod must specify**:
+
+- `resources.requests`
+    
+- `resources.limits`
+    
+
+Otherwise, Kubernetes doesn’t know **how much to count** toward the quota, so:
+
+> ❌ **The Pod will be rejected** if it doesn't include `requests` and `limits`.
+
+* * *
+
+### ✅ Solution: Use a **LimitRange**
+
+A `LimitRange`:
+
+- Automatically **fills in** missing `requests` and/or `limits` for a container
+    
+- Ensures that all Pods in the namespace are **compatible with the ResourceQuota**
+    
+- Prevents users from forgetting to set those values manually
+    
+
+* * *
+
+## 🔄 Workflow Example: How They Work Together
+
+### 1️⃣ You define a **ResourceQuota**:
+
+```yaml
+spec:
+  hard:
+    requests.cpu: "4"
+    limits.cpu: "8"
+```
+
+### 2️⃣ You apply a **LimitRange**:
+
+```yaml
+spec:
+  limits:
+  - type: Container
+    defaultRequest:
+      cpu: "200m"
+    default:
+      cpu: "500m"
+```
+
+### 3️⃣ User creates a Pod **without specifying resources**:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+  namespace: dev
+spec:
+  containers:
+  - name: test
+    image: busybox
+    command: ["sleep", "3600"]
+```
+
+### 🔁 What Kubernetes does:
+
+- `LimitRange` fills in:
+    
+    - `requests.cpu = 200m`
+        
+    - `limits.cpu = 500m`
+        
+- These are **counted toward the quota**:
+    
+    - `requests.cpu` used = 200m
+        
+    - `limits.cpu` used = 500m
+        
+
+✅ Pod is accepted  
+✅ Quota is enforced  
+✅ User didn't have to manually define resources
+
+* * *
+
+## ✅ Summary
+
+| Feature | Purpose |
+| --- | --- |
+| `ResourceQuota` | Enforces total resource usage limits for a namespace |
+| `LimitRange` | Sets defaults and bounds for per-container resource requests and limits |
+| Why Needed Together? | **Quota can only be enforced if requests/limits exist**, and `LimitRange` ensures they do |
+
+* * *
+
+## 🔥 TL;DR
+
+> **LimitRange exists to ensure that Pods have valid `requests` and `limits`, which are necessary for `ResourceQuota` to work.**
+
+Without `LimitRange`, ResourceQuota **may reject** any Pod that doesn't explicitly specify resources.
+
+* * *
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Let's compare **ResourceQuota** and **LimitRange** using side-by-side YAML examples and a breakdown of their differences and how they work together in a Kubernetes **namespace**.
+
+* * *
+
+## 🧾 **1\. LimitRange YAML**
+
+This sets **default values** for container `requests` and `limits`, and also enforces **min/max constraints**.
+
+```yaml
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-limits
+  namespace: dev
+spec:
+  limits:
+  - type: Container #The type field specifies which kind of resource the limit applies to. 
+  		    #It determines the scope of the limits and defaults defined in that particular limit rule.
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+    max:
+      cpu: "1"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "200m"
+      memory: "256Mi"
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+```
+
+### 🔍 What this does:
+
+| Field | Purpose |
+| --- | --- |
+| `min` | Minimum allowed resource request/limit |
+| `max` | Maximum allowed resource request/limit |
+| `defaultRequest` | Automatically applied **request** if user doesn’t set one |
+| `default` | Automatically applied **limit** if user doesn’t set one |
+
+&nbsp;
+
+* * *
+
+## 🧾 **2\. ResourceQuota YAML**
+
+This enforces **resource usage limits across the namespace**.
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: dev
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: "4Gi"
+    limits.cpu: "4"
+    limits.memory: "8Gi"
+    pods: "10"
+    persistentvolumeclaims: "5"
+    requests.storage: "100Gi"
+```
+
+### 🔍 What this does:
+
+| Field | Purpose |
+| --- | --- |
+| `requests.cpu` / `requests.memory` | Total **requested** CPU/memory allowed in namespace |
+| `limits.cpu` / `limits.memory` | Total **limits** allowed in namespace |
+| `pods` | Max number of Pods allowed in namespace |
+| `persistentvolumeclaims` | Max number of PVCs |
+| `requests.storage` | Total storage allowed via PVCs |
+
+* * *
+
+## 🧠 Comparison: **LimitRange vs ResourceQuota**
+
+| Feature | `LimitRange` | `ResourceQuota` |
+| --- | --- | --- |
+| Scope | Per **Pod/Container** | Whole **namespace** |
+| Purpose | Set default & min/max for resource requests/limits | Enforce total usage caps |
+| Applies to | Individual containers | Namespace-level totals |
+| Auto-fills missing values | ✅ Yes (`defaultRequest`, `default`) | ❌ No |
+| Prevents overuse | ✅ Per container | ✅ Per namespace |
+| Rejects pods that exceed limits | ✅ If outside min/max | ✅ If over quota |
+
+* * *
+
+## 🔗 How They Work Together
+
+1.  **`LimitRange`** ensures that all containers have appropriate request/limit values.
+    
+2.  If a Pod doesn't define them ➝ `LimitRange` fills them in.
+    
+3.  Then Kubernetes checks those values against the **`ResourceQuota`**.
+    
+4.  If the namespace is within quota ➝ Pod is admitted ✅
+    
+5.  If the new Pod would exceed quota ➝ Pod is rejected ❌
+    
+
+* * *
+
+## ✅ Best Practice
+
+- Use **LimitRange** to avoid missing requests/limits and enforce sane defaults.
+    
+- Use **ResourceQuota** to prevent any team/app from using too much of the cluster's shared resources.
+    
+
+* * *
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
 
 &nbsp;
