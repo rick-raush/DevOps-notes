@@ -272,7 +272,7 @@ This stores the entire file under the key `app.properties`.
 
 ### ✅ TL;DR:
 
-Yes, you can — and **should** — create ConfigMaps using YAML when possible. It's the cleanest, most maintainable way in production environments. 
+Yes, you can — and **should** — create ConfigMaps using YAML when possible. It's the cleanest, most maintainable way in production environments.
 
 * * *
 
@@ -434,9 +434,25 @@ spec:
   volumes:
     - name: configmap-volume
       configMap:
+        name: cm5 #when we need all the key: value pair in the config file
+        
+  volumes:
+    - name: configmap-volume
+      configMap:
         name: cm5
+        items: 	#<-- when we need specific key: value pairs form the configMap
+          - key: variable1
+            path: key1
+          - key: variable2
+            path: key2
+
 
 ```
+
+| Usage | What happens | Why use it? |
+| --- | --- | --- |
+| **Without `items`** | All keys become files with original names | When you want to mount all keys |
+| **With `items`** | Only listed keys are mounted, can rename files | Selective mount + rename files |
 
 * * *
 
