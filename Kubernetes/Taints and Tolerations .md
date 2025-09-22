@@ -533,3 +533,143 @@ An empty key means "match all keys and values" → so only `Exists` operator ma
 &nbsp;
 
 &nbsp;
+
+* * *
+
+# Default Implementation: Node Unreachable / Not Ready Handling in Kubernetes
+
+* * *
+
+## 1\. **Node Health Condition Changes**
+
+- When a node becomes:
+    
+    - **Unreachable** (e.g., network failure)
+        
+    - **Not Ready** (e.g., kubelet down)
+        
+- Kubernetes detects this via the **Node Controller**.
+    
+
+* * *
+
+## 2\. **Automatic Taint Addition**
+
+Kubernetes automatically adds special **NoExecute taints** to the affected node:
+
+| Taint Key | Effect | Meaning |
+| --- | --- | --- |
+| `node.kubernetes.io/unreachable` | `NoExecute` | Node is unreachable |
+| `node.kubernetes.io/not-ready` | `NoExecute` | Node is not ready |
+
+- Taints (on nodes) **don’t have an operator**.
+    
+- Tolerations (on pods) **must have an operator**, and for default system tolerations.
+    
+
+- These taints mark the node as **unhealthy**.
+
+* * *
+
+## 3\. **What Does the `NoExecute` Taint Effect Mean?**
+
+- Tells the **Kubelet and Scheduler** to **evict pods** that **do NOT tolerate** this taint.
+    
+- **Pods without matching tolerations:**
+    
+    - **Immediately evicted** (terminated and rescheduled elsewhere).
+- **Pods with matching tolerations:**
+    
+    - Can continue to run **temporarily** on the node.
+
+* * *
+
+## 4\. **The `tolerationSeconds` Field**
+
+| Property | Default Value | Explanation |
+| --- | --- | --- |
+| `tolerationSeconds` | **300 seconds** (5 minutes) | Time pods with tolerations can stay on a tainted node before eviction |
+
+- Allows pods to stay on an unhealthy node **up to 5 minutes**.
+    
+- Kubernetes waits this time for the node to **recover**.
+    
+- If the node doesn't recover in this period, pods are **evicted after 300 seconds**.
+    
+
+* * *
+
+## 5\. **Do Pods Get Tolerations Automatically?**
+
+&nbsp;
+
+### ✅ Default Tolerations Automatically Added by Kubernetes
+
+Kubernetes automatically adds the following tolerations to all pods:
+
+```yaml
+- key: "node.kubernetes.io/not-ready"
+  operator: "Exists"
+  effect: "NoExecute"
+  tolerationSeconds: 300
+
+- key: "node.kubernetes.io/unreachable"
+  operator: "Exists"
+  effect: "NoExecute"
+  tolerationSeconds: 300
+```
+
+### 📌 Behavior:
+
+- These are **only added if not already defined** in the pod spec.
+    
+- They allow pods to **remain on a node for 5 minutes** if it becomes `NotReady` or `Unreachable`.
+    
+- After 300 seconds, if the node is still unhealthy, the pod is **evicted**.
+    
+
+This default behavior ensures pods have a grace period before eviction during temporary node issues
+
+&nbsp;
+
+&nbsp;
+
+* * *
+
+## 6\. **Why Do Some Pods Stay Running After Node Issues?**
+
+- **System pods** (like `kube-proxy`, `coredns`) include these tolerations **by default** in their manifests.
+    
+- This enables them to **stay running during short node outages**.
+    
+- User workloads **need to add tolerations manually** to get the same behavior.
+    
+
+* * *
+
+## 7\. **Example: Toleration for Node Unreachable Taint**
+
+```yaml
+tolerations:
+- key: "node.kubernetes.io/unreachable"
+  operator: "Exists"
+  effect: "NoExecute"
+  tolerationSeconds: 300
+```
+
+> This toleration allows the pod to stay on a node that is unreachable for up to 300 seconds.
+
+* * *
+
+## 8\. **Summary Table**
+
+| Step | Responsible Component | Behavior |
+| --- | --- | --- |
+| Add `NoExecute` taints | Kubernetes Node Controller | Marks node as unhealthy |
+| Add tolerations to pods | Pod spec author (manual) | Allows pods to tolerate taints and stay temporarily |
+| Evict pods without toleration | Kubelet / Scheduler | Pods are evicted immediately |
+| Pods with toleration + `tolerationSeconds` | Kubelet / Scheduler | Pods stay for up to 300 seconds before eviction |
+
+* * *
+
+&nbsp;
