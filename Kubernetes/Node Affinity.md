@@ -1,6 +1,4 @@
-&nbsp;
-
-## 🧠 What is `nodeAffinity`?
+## 🧠 What is `nodeAffinity`?
 
 `nodeAffinity` is a **scheduling rule** in a Pod's spec that tells Kubernetes:
 
@@ -252,4 +250,6 @@ affinity:
 
 * * *
 
-If you want, I can help you build a **correct YAML example** for your case!
+&nbsp;
+
+&nbsp;
