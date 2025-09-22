@@ -702,6 +702,8 @@ Now the files would be:
 
 * * *
 
-Let me know if you want an example using a **Deployment**, or want to inject both **env vars and files** together.
+&nbsp;
+
+&nbsp;
 
 &nbsp;
