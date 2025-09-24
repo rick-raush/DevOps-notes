@@ -86,4 +86,6 @@ If the source and destination have different filesystems (e.g., `ext4`, `xfs`), 
 
 * * *
 
-Let me know if you want a visual analogy or an example using actual inodes!
+[Introduction to Linux.pdf](../_resources/Introduction%20to%20Linux.pdf)
+
+&nbsp;
