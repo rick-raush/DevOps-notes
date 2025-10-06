@@ -126,6 +126,10 @@ Both **VPC Peering** and **PrivateLink** enable private connectivity between Vir
 
 &nbsp;
 
-**VPC Peering (mesh) vs PrivateLink (hub-and-spoke)** 
+**VPC Peering (mesh) vs PrivateLink (hub-and-spoke)**
 
-<img src="../_resources/5fb9fd74f2e3f924d79fa4e07a469c46.png" alt="5fb9fd74f2e3f924d79fa4e07a469c46.png" width="560" height="254">
+<img src="../_resources/5fb9fd74f2e3f924d79fa4e07a469c46.png" alt="5fb9fd74f2e3f924d79fa4e07a469c46.png" width="800" height="363" class="jop-noMdConv">
+
+&nbsp;
+
+<img src="../_resources/73cd3b9fd184744d56faf577f6d26aa3.png" alt="73cd3b9fd184744d56faf577f6d26aa3.png" width="801" height="391">
