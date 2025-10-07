@@ -21,7 +21,6 @@ __pycache__/
 *.swp
 
 #Task folder is ignored(has data related to tasks)
-_resources/
 Tasks/
 
 #Automation script for exporting and pushing to git hub
