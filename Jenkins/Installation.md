@@ -1,5 +1,3 @@
-&nbsp;
-
 ## 🔹 Jenkins Installation on Amazon Linux 2023 (EC2)
 
 1.  **Update system packages**

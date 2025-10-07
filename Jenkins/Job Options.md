@@ -1,4 +1,4 @@
-Great question 👍 You’re looking at the **configuration options when creating a Jenkins Freestyle project**. Let me explain each of these settings in plain language 👇
+**Configuration options when creating a Jenkins Freestyle project**
 
 * * *
 
