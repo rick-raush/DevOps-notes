@@ -40,6 +40,49 @@
 | `-r` | Delete user + home | `userdel -r alice` |
 | `-f` | Force delete (even if logged in) | `userdel -f alice` |
 
+&nbsp;
+
+The content of your `wheel` file line by line:
+
+* * *
+
+### File content:
+
+`## Allow users in the wheel group to execute sudo without password%wheel ALL=(ALL) NOPASSWD: ALL`
+
+* * *
+
+### Explanation:
+
+1.  **`%wheel`**
+    
+    - The `%` sign means it’s a **group**, not a single user.
+        
+    - So this line applies to **all users in the `wheel` group**.
+        
+2.  **`ALL=(ALL)`**
+    
+    - The first `ALL` = **on all hosts** (relevant if you have multiple machines).
+        
+    - The `(ALL)` = **as all users** — meaning members can run commands as **any user**, including root.
+        
+3.  **`NOPASSWD: ALL`**
+    
+    - `NOPASSWD` = **don’t ask for a password** when running sudo.
+        
+    - `ALL` = applies to **all commands**.
+        
+
+* * *
+
+### ✅ In short:
+
+> Any user who is part of the **wheel group** can run **any command as root** using `sudo` **without being prompted for a password**.
+
+&nbsp;
+
+&nbsp;
+
 * * *
 
 ### ✅ `passwd`
