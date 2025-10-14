@@ -98,4 +98,102 @@
 
 &nbsp;
 
+# Buildx
+
+Build & push in **one step** for multiple platforms:
+
+```bash
+docker buildx build \
+  -f Dockerfile \
+  -t 337891198417.dkr.ecr.ap-south-1.amazonaws.com/digitaldevops:cortex-agent-8.3-updated-manifest \
+  --platform linux/amd64,linux/arm64 \
+  --push .
+```
+
+✅ Explanation:
+
+- `--platform linux/amd64,linux/arm64` → Builds for both x86_64 and ARM64.
+    
+- `--push` → Pushes directly to ECR after building; no local image stored.
+    
+- `-f Dockerfile` → Path to your Dockerfile.
+    
+
+`t ...` → Image name with tag.
+
+Absolutely! Let’s break down this **Docker Buildx command** step by step and compare it to the traditional Docker build/push workflow.
+
+* * *
+
+## **1️⃣ The command explained**
+
+```bash
+docker buildx build \
+  -f Dockerfile \
+  -t 337891198417.dkr.ecr.ap-south-1.amazonaws.com/digitaldevops:cortex-agent-8.3-updated-manifest \
+  --platform linux/amd64,linux/arm64 \
+  --push .
+```
+
+**Breakdown:**
+
+| Part | Meaning |
+| --- | --- |
+| `docker buildx build` | Uses **Docker Buildx**, which is an extended builder for Docker that supports **multi-platform builds**, **buildkit**, and advanced features. |
+| `-f Dockerfile` | Specifies the Dockerfile to use. If omitted, it defaults to `./Dockerfile`. |
+| `-t 337891198417.dkr.ecr.ap-south-1.amazonaws.com/digitaldevops:cortex-agent-8.3-updated-manifest` | Tags the image with your **ECR repository name** and tag. |
+| `--platform linux/amd64,linux/arm64` | Builds the image for **multiple CPU architectures**: x86_64 (amd64) and ARM64. |
+| `--push` | Pushes the resulting image directly to **ECR**, skipping local storage. |
+| `.` | Context for the build, i.e., current directory with Dockerfile and files. |
+
+* * *
+
+## **2️⃣ How it differs from traditional Docker build**
+
+### **Traditional Docker build + push**
+
+```bash
+docker build -f Dockerfile -t my-image:tag .
+docker tag my-image:tag <ecr-repo-url>:tag
+docker push <ecr-repo-url>:tag
+```
+
+- Builds for **a single platform** (usually the one your Docker daemon runs on).
+    
+- Image is first stored locally and then pushed.
+    
+- Multi-arch images are not supported without extra steps.
+    
+
+* * *
+
+### **Docker Buildx advantages**
+
+1.  **Multi-platform builds**
+    
+    - Build one image for **x86_64, ARM64**, etc., in a single command.
+        
+    - Useful for CI/CD pipelines targeting different architectures (AWS Graviton, Mac M1/M2, etc.).
+        
+2.  **Direct push**
+    
+    - `--push` uploads the image immediately to the registry without storing it locally.
+3.  **BuildKit support**
+    
+    - Faster builds with caching, parallel steps, and smaller final images.
+4.  **Manifest creation**
+    
+    - Automatically creates a **multi-arch manifest** in the registry, so pulling the image automatically chooses the correct architecture for the host machine.
+
+* * *
+
+### **3️⃣ Key takeaway**
+
+- **Traditional Docker build** → Single-platform, stored locally first, then pushed.
+    
+- **Buildx** → Multi-platform, uses BuildKit, can push directly, and automatically handles manifests for ARM/x86.
+    
+
+* * *
+
 &nbsp;
