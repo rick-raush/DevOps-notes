@@ -65,6 +65,90 @@ At the end, you always get **the same perfect cake** every time.
 
 &nbsp;
 
+The **repository-based installation** vs the **manual download method**. Let me break it down carefully:
+
+* * *
+
+## **1️⃣ Manual download method (what we did first)**
+
+- You **downloaded a specific version** of Packer as a zip from HashiCorp’s website.
+    
+- Then you manually **unzipped** it and **moved the binary** to `/usr/local/bin`.
+    
+- Pros:
+    
+    - You control the exact version.
+        
+    - Doesn’t rely on system repositories.
+        
+- Cons:
+    
+    - No automatic updates — you have to manually download and update Packer.
+
+* * *
+
+## **2️⃣ Repository-based installation (yum method)**
+
+Steps:
+
+1.  **Install yum-config-manager**
+
+```bash
+sudo yum install -y yum-utils
+```
+
+- Installs `yum-config-manager`, a tool to manage yum repositories.
+
+2.  **Add the HashiCorp repository**
+
+```bash
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+```
+
+- This adds the official HashiCorp repository to your system so yum can find Packer and other HashiCorp tools.
+
+3.  **Install Packer via yum**
+
+```bash
+sudo yum -y install packer
+```
+
+- Now yum installs Packer **directly from the repository**.
+    
+- Pros:
+    
+    - Automatically resolves dependencies.
+        
+    - Easier to **update Packer** later using `yum update packer`.
+        
+- Cons:
+    
+    - You get the **latest version available in the repo**, not necessarily a specific version.
+
+* * *
+
+### **Key Difference**
+
+| Aspect | Manual Download | Yum Repository |
+| --- | --- | --- |
+| Version control | Yes (you choose) | Limited to repo version |
+| Updates | Manual | Automatic via `yum update` |
+| Ease of installation | Slightly more steps | Fewer steps, easier to manage |
+| Dependency resolution | Manual | Handled by yum |
+
+* * *
+
+💡 **Rule of thumb:**
+
+- If you want **latest and easy updates**, use the **repo method**.
+    
+- If you need **a specific version**, use **manual download**.
+    
+
+* * *
+
+&nbsp;
+
 &nbsp;
 
 **high-level Packer template structure**, showing only the main sections without all the details:
@@ -284,13 +368,15 @@ variable "ssh_password" {
 # -------------------------
 # SOURCE (Builder)
 # -------------------------
+# source "<builder-type>" "<source-name>" { ... }
+
 source "amazon-ebs" "base_ami" {
   # --- Step 1: Base region & networking ---
   region                      = var.vpc_region
   vpc_id                       = var.vpc_id
   subnet_id                    = var.vpc_public_sn_id
   security_group_id            = var.vpc_public_sg_id
-  associate_public_ip_address  = false
+  associate_public_ip_address  = false ##no public ip is given
   iam_instance_profile         = "paytm-digital-cst-app-arm-nonprod-iam-role"
 
   # --- Step 2: Source AMI ---
@@ -299,7 +385,7 @@ source "amazon-ebs" "base_ami" {
       "virtualization-type" = "hvm"
       "name"                = "amazon-eks-node-al2023-${var.architecture}-standard-${var.version}*"
       "root-device-type"    = "ebs"
-      "architecture"        = var.architecture
+      "architecture"        = var.architecture ##packer build -var "architecture=arm64" .
     }
     owners      = ["amazon"]
     most_recent = true
@@ -1104,5 +1190,718 @@ Example tags include:
 &nbsp;
 
 &nbsp;
+
+Let’s compare **HCL2 vs JSON** for specifying the **Amazon builder/plugin requirement** in Packer.
+
+* * *
+
+## **1️⃣ HCL2 Format**
+
+```hcl
+packer {
+  required_plugins {
+    amazon = {
+      version = ">= 1.2.8"
+      source  = "github.com/hashicorp/amazon"
+    }
+  }
+}
+```
+
+**Explanation:**
+
+- `packer {}` → Top-level block for Packer configuration.
+    
+- `required_plugins {}` → Declares the plugins your template needs.
+    
+- `amazon = { ... }` → Specifies the Amazon EBS builder plugin with version and source.
+    
+
+✅ Key points:
+
+- Explicitly tells Packer **which plugin to download**.
+    
+- Required for HCL2 templates using external builders.
+    
+
+* * *
+
+## **2️⃣ JSON Format**
+
+In JSON, you **don’t explicitly declare plugins** like HCL2.
+
+- Packer **infers the plugin from the builder type**.
+
+Example JSON builder:
+
+```json
+{
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "ap-south-1",
+      "instance_type": "t2.micro",
+      "source_ami": "ami-0c55b159cbfafe1f0",
+      "ssh_username": "ec2-user",
+      "ami_name": "example-ami-{{timestamp}}"
+    }
+  ]
+}
+```
+
+**Explanation:**
+
+- `"type": "amazon-ebs"` → Tells Packer to use the **Amazon EBS builder plugin**.
+    
+- Packer automatically downloads the required plugin from its plugin registry or local cache.
+    
+- There’s **no explicit `required_plugins` block** in JSON.
+    
+
+* * *
+
+### **✅ Key Difference**
+
+| Feature | HCL2 | JSON |
+| --- | --- | --- |
+| Plugin declaration | Explicit `required_plugins` | Implicit via `"type"` |
+| Version control of plugin | Yes (`version = ">= 1.2.8"`) | No  |
+| Source of plugin | Explicit (`source = "..."`) | Default registry inferred |
+| Mandatory? | For HCL2 external plugins | Not required |
+
+* * *
+
+In short:
+
+- **HCL2** → Explicit, gives control over plugin version and source.
+    
+- **JSON** → Implicit, simpler, Packer handles plugin automatically.
+    
+
+* * *
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+This `provisioner "shell"` block is a **core part of Packer** where we tell it *what setup commands or scripts to run* inside the temporary EC2 instance **after** it launches but **before** the AMI is created.
+
+Let’s break it down clearly 👇
+
+* * *
+
+## 🧩 **Context**
+
+When Packer builds an AMI, it:
+
+1.  Launches a temporary EC2 instance.
+    
+2.  SSHs into it.
+    
+3.  Runs whatever scripts you define under **provisioners**.
+    
+4.  Creates the final AMI from that configured instance.
+    
+
+* * *
+
+## ⚙️ **Your snippet**
+
+```hcl
+provisioner "shell" {
+  execute_command = "echo '${var.ssh_password}' | {{.Vars}} sudo -E -S bash '{{.Path}}'"
+  scripts = [
+    "../scripts_common/common-packages-al2023.sh",
+    "../scripts_common/add-ansible-key.sh",
+    "../scripts_common/ansible_setup.sh"
+  ]
+}
+```
+
+* * *
+
+## 🔍 **Step-by-step explanation**
+
+### 1\. `provisioner "shell"`
+
+This tells Packer:
+
+> “Run shell commands (or scripts) inside the instance.”
+
+Packer supports different provisioner types (like `ansible`, `chef`, `file`, etc.), and this is the simplest — just a shell script runner.
+
+* * *
+
+### 2\. `execute_command`
+
+```bash
+echo '${var.ssh_password}' | {{.Vars}} sudo -E -S bash '{{.Path}}'
+```
+
+This defines **how Packer executes** the scripts inside the instance.
+
+Let’s decode it:
+
+| Part | Meaning |
+| --- | --- |
+| `echo '${var.ssh_password}'` | Sends the SSH password (if defined) into the command input. Used only if password authentication is needed — often optional when SSH key is used. |
+| `{{.Vars}}` | A Packer template variable — injects environment variables like `PACKER_BUILD_NAME`, `PACKER_BUILDER_TYPE`, etc., into the command environment. |
+| `sudo -E -S` | Runs the command as `root` using `sudo`. • `-E` keeps the environment variables. • `-S` reads the password from stdin (that’s why we echo it). |
+| `bash '{{.Path}}'` | Runs the shell script file Packer uploaded. `{{.Path}}` is replaced by the actual script path inside the instance. |
+
+✅ So effectively, it means:
+
+> “Run the uploaded script as root using sudo, preserving environment variables.”
+
+* * *
+
+### 3\. `scripts = [...]`
+
+This is a **list of shell scripts** that Packer will run in order.
+
+Each path:
+
+```bash
+../scripts_common/common-packages-al2023.sh
+../scripts_common/add-ansible-key.sh
+../scripts_common/ansible_setup.sh
+```
+
+is a local file on your machine that Packer copies to the instance, then runs via the command defined in `execute_command`.
+
+So:
+
+- First script installs common packages
+    
+- Second adds an Ansible SSH key
+    
+- Third installs/configures Ansible
+    
+
+* * *
+
+## 💡 **If you don’t define `execute_command`**
+
+Packer will use a **default command** (typically `sudo -E bash '{{.Path}}'`), which works fine if:
+
+- You’re using SSH keys (not passwords)
+    
+- Your default SSH user (like `ec2-user`) has passwordless `sudo`
+    
+
+So `execute_command` is optional unless you need custom sudo handling or environment setup.
+
+* * *
+
+### ✅ **Summary Table**
+
+| Field | Purpose |
+| --- | --- |
+| `provisioner "shell"` | Runs shell scripts on the instance |
+| `execute_command` | Custom command for how to execute those scripts (with sudo, env, password) |
+| `scripts` | Ordered list of local shell scripts to run during provisioning |
+
+* * *
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Packer to use **Ansible** to configure the instance.
+
+Let’s unpack this line by line 👇
+
+* * *
+
+## 🧩 **What `provisioner "ansible-local"` means**
+
+Packer supports several types of **provisioners** — one of them is `ansible-local`.
+
+This type tells Packer:
+
+> “Install Ansible **inside** the temporary instance, then run the given playbook **locally** there.”
+
+So instead of running Ansible from your own workstation (via SSH like `ansible-playbook`), Packer:
+
+1.  Uploads your playbooks and roles to the instance.
+    
+2.  Installs Ansible on that instance.
+    
+3.  Executes the playbook *on itself*.
+    
+
+That’s why it’s called **ansible-local**.
+
+* * *
+
+## ⚙️ **Snippet**
+
+```hcl
+provisioner "ansible-local" {
+  playbook_file = "../../ansible/cst_prod_eks_base_image.yml"
+  command       = "sudo /bin/ansible-pull"
+}
+```
+
+Let’s go line by line.
+
+* * *
+
+### 🧠 1. `provisioner "ansible-local"`
+
+- Tells Packer to use **Ansible** as the configuration engine.
+    
+- It will install Ansible (if not already present) and then run your playbook.
+    
+
+* * *
+
+### 📄 2. `playbook_file = "../../ansible/cst_prod_eks_base_image.yml"`
+
+- Specifies **which Ansible playbook** to run inside the instance.
+    
+- The path is **relative to your Packer template** (where you run `packer build`).
+    
+- Packer copies that playbook into the instance’s temporary working directory, usually `/tmp/packer-provisioner-ansible-local/`.
+    
+
+This playbook usually:
+
+- Installs required packages,
+    
+- Configures services,
+    
+- Sets permissions, users, etc.
+    
+
+* * *
+
+### 🧰 3. `command = "sudo /bin/ansible-pull"`
+
+By default, Packer’s `ansible-local` provisioner runs:
+
+```bash
+ansible-playbook <playbook_file>
+```
+
+But here, you’re **overriding** that command and telling it to use:
+
+```bash
+sudo /bin/ansible-pull
+```
+
+Let’s break that down:
+
+| Part | Meaning |
+| --- | --- |
+| `sudo` | Run as root (since system-level setup usually needs root privileges). |
+| `/bin/ansible-pull` | Runs Ansible in **pull mode** instead of push mode. |
+
+* * *
+
+### 💡 What is **Ansible Pull Mode**?
+
+Normally, Ansible uses a **push** model — the control node connects to remote hosts and pushes configuration.
+
+In **pull mode**, the remote host (your EC2 instance) itself *pulls* playbooks from a Git repository and applies them locally.
+
+In your case, the playbook might include a line like:
+
+```yaml
+- hosts: localhost
+```
+
+So Ansible runs everything *inside the instance*.
+
+You often combine this with parameters like:
+
+```hcl
+extra_arguments = [
+  "-U git@bitbucket.org:paytmteam/oauth-images.git",
+  "--checkout master",
+  "--accept-host-key",
+  "-i 127.0.0.1,"
+]
+```
+
+to make `ansible-pull` download the latest version of your repo before running.
+
+* * *
+
+## 🧠 **Putting it all together**
+
+So when Packer reaches this provisioner step:
+
+1.  It copies your Ansible playbook (and optionally roles) into the instance.
+    
+2.  Installs Ansible if needed.
+    
+3.  Runs:
+    
+    ```bash
+    sudo /bin/ansible-pull -U git@bitbucket.org:paytmteam/oauth-images.git \
+    -d /var/lib/ansible/oauth-images \
+    -i 127.0.0.1, \
+    -e target_host=all \
+    --checkout master
+    ```
+    
+    (depending on your extra args)
+    
+4.  Ansible configures the instance as per your playbook.
+    
+5.  Once done, Packer stops the instance and creates the AMI.
+    
+
+* * *
+
+### ✅ **Summary**
+
+| Field | Meaning |
+| --- | --- |
+| `provisioner "ansible-local"` | Run Ansible **inside** the instance |
+| `playbook_file` | Path to the main Ansible playbook |
+| `command` | Overrides default Ansible command; here using `ansible-pull` for self-provisioning |
+| Typical usage | Install packages, configure services, or harden the image before AMI creation |
+
+* * *
+
+- **ansible** → Runs playbook remotely from your machine; requires Ansible installed locally and network access to the instance.
+    
+- **ansible-local** → Runs playbook inside the instance; Packer uploads the playbook; no local Ansible needed.
+    
+- **ansible-pull** → Runs playbook inside the instance; instance pulls it from a Git repo; good for keeping AMIs automatically updated.
+    
+
+| Feature | ansible | ansible-local | ansible-pull |
+| --- | --- | --- | --- |
+| Where playbook runs | Remote | Local | Local |
+| Playbook source | Local copy | Uploaded copy | Git repo |
+| Requires Ansible on host | Yes | No  | No (installed inside instance) |
+| Network dependency | Yes (control → instance) | No  | Yes (instance → Git repo) |
+| Best use case | Quick ad-hoc, CI builds | Standard Packer builds | Auto-update AMIs from Git |
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+The **execution stage** of your Packer workflow.  
+Let’s go step by step so you understand **what each command does** and **how to confirm the AMI is created** in AWS.
+
+* * *
+
+## 🧩 1️⃣ Prerequisites checklist before running
+
+Make sure the following are ready:
+
+✅ **Packer installed** → `packer version`  
+✅ **AWS credentials configured** → `aws sts get-caller-identity`
+
+- (should return your AWS account info — that’s how Packer authenticates)  
+    ✅ **Your `.pkr.hcl` file** (e.g. `ubuntu_base.pkr.hcl`) is correct  
+    ✅ **SSH key** specified in your builder actually exists in AWS  
+    ✅ **Ansible roles/playbook path** is valid (if using provisioners)
+
+&nbsp;
+
+The **best practice** for EC2 instances running Packer, because you don’t need to manage static credentials at all. Let’s go step by step.
+
+* * *
+
+## **Step 1: Create an IAM Role for EC2**
+
+1.  Go to the **AWS Management Console → IAM → Roles → Create Role**.
+    
+2.  Select **EC2** as the trusted entity (since your EC2 instance will assume this role).
+    
+3.  Attach a policy with **permissions Packer needs**. There are a few ways:
+    
+
+### **Option A: Use managed policies**
+
+- `AmazonEC2FullAccess` → Allows creating instances, AMIs, snapshots, etc.
+    
+- `AmazonSSMManagedInstanceCore` → Optional, if you use SSM for provisioning.
+    
+
+### **Option B: Use a custom policy** (more secure)
+
+You can restrict permissions to only what you need for your Packer build. Example JSON:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:RunInstances",
+                "ec2:DescribeInstances",
+                "ec2:CreateImage",
+                "ec2:TerminateInstances",
+                "ec2:DescribeImages",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSecurityGroups",
+                "ec2:CreateTags",
+                "ec2:DeleteTags",
+                "ec2:DescribeKeyPairs",
+                "ec2:DescribeSnapshots"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+> You can further restrict `Resource` to only your VPC, subnets, and instances if you want maximum security.
+
+* * *
+
+## **Step 2: Attach the Role to Your EC2 Instance**
+
+1.  Go to **EC2 → Instances → Select your instance → Actions → Security → Modify IAM Role**.
+    
+2.  Choose the role you just created.
+    
+3.  Save changes.
+    
+
+> After this, your EC2 instance automatically gets temporary credentials via the instance metadata service. No keys are stored on disk.
+
+* * *
+
+## **Step 3: Verify IAM Role is working**
+
+On the EC2 instance:
+
+```bash
+aws sts get-caller-identity
+```
+
+- You should see an ARN like:  
+    `arn:aws:sts::123456789012:assumed-role/MyPackerRole/i-0abcd1234efgh5678`
+    
+- If you see this, Packer and AWS CLI will now work without `aws configure`.
+    
+
+* * *
+
+## **Step 4: Run Packer**
+
+Now you can proceed normally:
+
+```bash
+packer init .
+packer validate .
+packer build my-pkr-file.pkr.hcl
+```
+
+- Packer will use the **IAM role’s temporary credentials** automatically.
+    
+- You don’t need any access keys.
+    
+
+* * *
+
+💡 **Tip:**  
+If your Packer template includes creating AMIs in a different region, make sure the role has permissions across those regions, or you’ll get `UnauthorizedOperation` errors.
+
+* * *
+
+&nbsp;
+
+Ah, this is a **common point of confusion**, so let’s clarify carefully.
+
+* * *
+
+## **1️⃣ IAM Role**
+
+- **Definition:** A set of **permissions** (policy) that defines what actions are allowed (e.g., `ec2:RunInstances`, `s3:GetObject`).
+    
+- **Purpose:** It’s an **identity** in AWS that can be assumed by users, services, or EC2 instances.
+    
+- **Example:** `packer-temp-ec2-role` with permission to create AMIs, launch EC2 instances, etc.
+    
+
+* * *
+
+## **2️⃣ Instance Profile**
+
+- **Definition:** A **container that allows EC2 to assume a role**.
+    
+- You **cannot attach a role directly** to an EC2 instance — you attach an **instance profile**, which references a role.
+    
+- Think of it as a “wrapper” around the IAM role so EC2 can use it.
+    
+
+> Every instance profile contains exactly **one IAM role**.
+
+* * *
+
+### **How they relate**
+
+| Concept | Description |
+| --- | --- |
+| IAM Role | The permissions themselves (what can be done). |
+| Instance Profile | A “wrapper” that EC2 uses to assume the role. EC2 instances need this. |
+| Use case in EC2 | EC2 cannot directly use an IAM role; it uses an **instance profile** that has a role. |
+
+* * *
+
+### **Example Flow**
+
+1.  Create IAM Role → `packer-temp-ec2-role` with EC2 permissions.
+    
+2.  Create Instance Profile → `packer-temp-ec2-profile` and attach `packer-temp-ec2-role` to it.
+    
+3.  Launch EC2 → assign `packer-temp-ec2-profile` as the instance profile.
+    
+4.  EC2 assumes the role inside the instance → temporary credentials available via metadata.
+    
+
+* * *
+
+### **In Packer Template**
+
+```hcl
+source "amazon-ebs" "example" {
+    iam_instance_profile = "packer-temp-ec2-profile"
+}
+```
+
+- Here **`iam_instance_profile`** = the instance profile attached to EC2.
+    
+- Inside AWS, that profile references a role which has the actual permissions.
+    
+
+* * *
+
+💡 **Key Point:**  
+If you only have a free-tier test EC2 and don’t want to create roles yet, you can **skip the `iam_instance_profile` line**. Packer will still work if your EC2 control plane has credentials via AWS keys or default IAM role.
+
+* * *
+
+&nbsp;
+
+&nbsp;
+
+* * *
+
+## ⚙️ 2️⃣ Initialize the Packer template
+
+Run this **inside the folder** where your `.pkr.hcl` file is located:
+
+```bash
+packer init .
+```
+
+🧠 Meaning:  
+This downloads and sets up the **required plugin** (like the `amazon` plugin you defined in your `packer` block).  
+It’s similar to `terraform init`.
+
+* * *
+
+## 🧩 3️⃣ Validate the configuration
+
+Before running the build, always check syntax:
+
+```bash
+packer validate .
+```
+
+✅ If successful, you’ll see:  
+`The configuration is valid.`  
+❌ If not, Packer will show exactly where the error is (syntax or variable missing, etc.)
+
+* * *
+
+## 🚀 4️⃣ Build the AMI
+
+Now the actual build:
+
+```bash
+packer build <yourfile>.pkr.hcl
+```
+
+Example:
+
+```bash
+packer build ubuntu_base.pkr.hcl
+```
+
+🧠 What happens internally:
+
+1.  Packer spins up a **temporary EC2 instance** using your source AMI.
+    
+2.  It connects via SSH and runs your **provisioners** (e.g. shell or ansible).
+    
+3.  When done, it **creates a new AMI** (based on that configured instance).
+    
+4.  Then it **terminates** the temporary EC2 instance.
+    
+
+* * *
+
+## 🧾 5️⃣ Output you’ll see
+
+If everything goes well, near the end you’ll get a line like:
+
+```
+amazon-ebs.base_ami: AMI: ami-0a12b34cd56ef7890 created
+```
+
+💡 **Copy this AMI ID** — that’s your new custom AMI.
+
+* * *
+
+## 🧭 6️⃣ Verify the AMI in AWS
+
+### Option 1: AWS CLI
+
+```bash
+aws ec2 describe-images --image-ids ami-0a12b34cd56ef7890 --query 'Images[*].{Name:Name,ID:ImageId,State:State}' --output table
+```
+
+You should see:
+
+```
+---------------------------------
+|       DescribeImages          |
++----------------+--------------+
+| ID             | ami-0a12b34  |
+| Name           | my-new-ami   |
+| State          | available    |
++----------------+--------------+
+```
+
+### Option 2: AWS Console
+
+- Go to **EC2 → AMIs** (on left sidebar)
+    
+- Choose **Owned by me**
+    
+- You’ll see your AMI listed there with the name from your `ami_name` field in the packer file.
+    
+
+* * *
+
+## 🧹 7️⃣ Clean up (optional)
+
+If you want to delete the AMI later:
+
+```bash
+aws ec2 deregister-image --image-id ami-0a12b34cd56ef7890
+```
+
+And also delete associated snapshots (if any).
+
+* * *
 
 &nbsp;
