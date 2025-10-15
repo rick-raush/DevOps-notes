@@ -1176,7 +1176,7 @@ Example tags include:
 
 &nbsp;
 
-**Overall Advantages / Differences between formats -** 
+**Overall Advantages / Differences between formats -**
 
 | Feature | JSON | HCL2 |
 | --- | --- | --- |
@@ -1903,5 +1903,95 @@ aws ec2 deregister-image --image-id ami-0a12b34cd56ef7890
 And also delete associated snapshots (if any).
 
 * * *
+
+&nbsp;
+
+Excellent — this is a **common confusion when moving from Terraform syntax** to Packer HCL2 👍
+
+Let’s go through this carefully.
+
+* * *
+
+## 🧩 Root Cause
+
+You wrote:
+
+```hcl
+${timestamp() | clean_resource_name}
+```
+
+That syntax (`|`) is **Terraform’s template filter** style, but **Packer HCL2 does not support the `|` operator** in interpolation.  
+So Packer is reading `|` as a **bitwise OR** — hence the error.
+
+* * *
+
+## ✅ Correct Fix (for Packer HCL2)
+
+You should use **the `clean_resource_name()` function**, not the `|` pipe filter.
+
+So instead of:
+
+```hcl
+${timestamp() | clean_resource_name}
+```
+
+Use:
+
+```hcl
+${clean_resource_name(timestamp())}
+```
+
+* * *
+
+## 🛠 Fixed Example for You
+
+Here’s how to fix **all three** places in your file:
+
+```hcl
+run_tags = {
+  Name        = "CST-${var.Application}-${var.version}-${var.architecture}-${clean_resource_name(timestamp())}-Build"
+  Application = var.Application
+  environment = "Prod"
+  Packer      = "true"
+}
+
+ami_name        = "CST-${var.Application}-${var.version}-${var.architecture}-${clean_resource_name(timestamp())}-AMI"
+ami_description = "Amazon EKS base image for amd - customized"
+
+tags = {
+  Name        = "CST-${var.Application}-${var.version}-${var.architecture}-${clean_resource_name(timestamp())}-AMI"
+  Application = var.Application
+  environment = "Prod"
+  Source_AMI  = "{{ .SourceAMI }}"
+  Packer      = "true"
+}
+```
+
+* * *
+
+## ✅ Validate Again
+
+Now re-run:
+
+```bash
+packer validate .
+```
+
+It should **pass cleanly**.  
+If it still errors, try the `formatdate()` version (it’s simpler and 100% safe):
+
+```hcl
+${formatdate("YYYYMMDDHHmmss", timestamp())}
+```
+
+Example:
+
+```hcl
+ami_name = "CST-${var.Application}-${var.version}-${var.architecture}-${formatdate("YYYYMMDDHHmmss", timestamp())}-AMI"
+```
+
+* * *
+
+&nbsp;
 
 &nbsp;
