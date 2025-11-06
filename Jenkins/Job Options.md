@@ -1,3 +1,31 @@
+Configure - Build Steps - Execute Shell
+
+**<img src="../_resources/88ae035e6160c267a988f2d1ea0f8517.png" alt="88ae035e6160c267a988f2d1ea0f8517.png" width="910" height="334" class="jop-noMdConv">**
+
+&nbsp;
+
+Search Pane usage
+
+**<img src="../_resources/288a15397b1e2599fa00bd0c4af6dd14.png" alt="288a15397b1e2599fa00bd0c4af6dd14.png" width="904" height="565" class="jop-noMdConv">**
+
+&nbsp;
+
+**System Configuration**
+
+**<img src="../_resources/041f13851e2574039c243ca3f9ee7e0b.png" alt="041f13851e2574039c243ca3f9ee7e0b.png" width="908" height="362" class="jop-noMdConv">**
+
+**<img src="../_resources/996cba416d3e1d4cea4520b6db1a48fb.png" alt="996cba416d3e1d4cea4520b6db1a48fb.png" width="912" height="300" class="jop-noMdConv">**
+
+&nbsp;
+
+Users and Role based Strategy Management
+
+![ss100.png](../_resources/ss100.png)
+
+&nbsp;
+
+&nbsp;
+
 **Configuration options when creating a Jenkins Freestyle project**
 
 * * *
@@ -137,4 +165,4 @@
 
 * * *
 
-👉 Do you want me to also give you a **recommended configuration for a typical GitHub → Jenkins build pipeline** (so you know which of these to enable by default)?
+&nbsp;
