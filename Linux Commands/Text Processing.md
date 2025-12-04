@@ -541,3 +541,93 @@ This replaces “foo” with “bar” **inside the file** without creating a ba
 * * *
 
 &nbsp;
+
+Here are the **most useful find & replace commands in Vim**, super simple and practical:
+
+* * *
+
+# ✅ **1\. Replace one word in entire file**
+
+```vim
+:%s/old/new/g
+```
+
+- `%` = whole file
+    
+- `s` = substitute
+    
+- `g` = replace all occurrences on each line
+    
+
+Example:
+
+```vim
+:%s/foo/bar/g
+```
+
+* * *
+
+# ✅ **2\. Replace only the first occurrence on each line**
+
+```vim
+:%s/old/new/
+```
+
+* * *
+
+# ✅ **3\. Confirm each replacement**
+
+```vim
+:%s/old/new/gc
+```
+
+`c` = confirm (y/n/a/q)
+
+* * *
+
+# ✅ **4\. Case-insensitive replace**
+
+```vim
+:%s/old/new/gi
+```
+
+`i` = ignore case
+
+* * *
+
+# ✅ **5\. Replace in a specific line range**
+
+Replace from line 10 to 20:
+
+```vim
+:10,20s/old/new/g
+```
+
+* * *
+
+# ✅ **6\. Replace only on current line**
+
+```vim
+:s/old/new/g
+```
+
+* * *
+
+# ✅ **7\. Replace whole word only**
+
+```vim
+:%s/\<old\>/new/g
+```
+
+* * *
+
+# ⭐ Example with confirmation flow
+
+```
+:%s/error/success/gc
+replace with success? (y/n/a/q/l/^E/^Y)
+```
+
+* * *
+
+If you want, tell me your exact text → I’ll write the exact Vim command for your case.

@@ -136,4 +136,4 @@ Database → Debezium Server → (Kinesis / PubSub / HTTP / Elasticsearch)
 
 * * *
 
-Would you like me to show a **real-world architecture example** (say: MySQL → Debezium → Kafka → Elasticsearch) with arrows and flow explanation? That’s usually the easiest way to visualize how it fits in a system.
+&nbsp;

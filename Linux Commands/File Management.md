@@ -283,4 +283,9 @@ ls -l file.txt file_hardlink.txt shortcut.txt
 
 &nbsp;
 
-&nbsp;
+| **Command** | **Purpose** | **Output** | **Key Flags Explained** |
+| --- | --- | --- | --- |
+| **`du -csh`** | **Calculate Directory Size** | Provides the **cumulative size** of a directory (or multiple files/directories) in human-readable format. | **`-c`**: Provides a **grand total** line (cumulative).  <br><br/><br/><br/>**`-s`**: **Summary** (shows only the total, not subdirectories).  <br><br/><br/><br/>**`-h`**: **Human-readable** (K, M, G). |
+| **`ls -lh`** | **List File Details & Size** | Lists the contents of a directory, showing the **size of individual files** in a human-readable format. | **`-l`**: **Long listing** (shows permissions, owner, date, and size).  <br><br/><br/><br/>**`-h`**: **Human-readable** (K, M, G). |
+| **`ls -i`** | **List Inode Numbers** | Lists the contents of a directory, showing the unique **inode number** associated with each file or directory. | **`-i`**: Displays the **inode number** in the first column. |
+| **`df -ih`** | **Check Disk Partition Usage** | Displays the amount of **free and used disk space** and **inode usage** across all mounted file systems (partitions). | **`-i`**: Reports **inode usage** (instead of block usage).  <br><br/><br/><br/>**`-h`**: **Human-readable** (K, M, G). |
