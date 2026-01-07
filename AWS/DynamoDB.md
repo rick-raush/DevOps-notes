@@ -1,0 +1,3 @@
+“In DynamoDB, we design queries first by listing access patterns, then choosing partition and sort keys that satisfy those patterns using Query operations, adding GSIs only when necessary, and avoiding Scan entirely.”
+
+“DynamoDB is more complex to design than SQL, but we choose it when we need predictable low latency, massive horizontal scale, and minimal operational overhead. SQL is simpler, but becomes hard to operate reliably at very large scale.”

@@ -462,6 +462,240 @@ This replaces “foo” with “bar” **inside the file** without creating a ba
 
 &nbsp;
 
+&nbsp;
+
+## (Best Practice)
+
+Instead of repeating `{print $1, $6}`:
+
+`awk 'NR==1 || /my-hpa/ {print $1, $6}'`
+
+Same output, simpler logic.
+
+* * *
+
+## Mental Model (Remember This)
+
+- `$1` = column 1
+    
+- `$6` = column 6
+    
+- `NR` = line number
+    
+- `/pattern/` = grep
+    
+- `{print}` = output
+    
+
+> **awk = grep + cut + if**
+
+* * *
+
+## One-Line Memory Trick 🧠
+
+> **If you ever think “cut + grep”, use awk instead.**
+
+&nbsp;
+
+Here’s a **clean, practical cheat sheet** you can actually **remember and use** — focused on **real ops / kubectl / log work**, not theory.
+
+* * *
+
+# 🧠 awk vs sed vs grep — Practical Cheat Sheet
+
+## 🔑 One-Line Summary (Memorize This)
+
+- **grep** → *find lines*
+    
+- **sed** → *modify lines*
+    
+- **awk** → *process columns & logic*
+    
+
+> If you remember only this, you’re good.
+
+* * *
+
+## 🟢 grep — “Line Filter”
+
+**Use when:**  
+You want to **keep or remove whole lines** based on a pattern.
+
+### Common Commands
+
+```bash
+grep error file.log
+grep -i error file.log        # case-insensitive
+grep -v error file.log        # exclude
+grep -E 'err|fail' file.log   # OR
+grep -n error file.log        # line numbers
+```
+
+### Strengths
+
+- Fast
+    
+- Simple
+    
+- Perfect for logs
+    
+
+### Weakness
+
+❌ Cannot work with columns
+
+* * *
+
+## 🟡 sed — “Line Editor”
+
+**Use when:**  
+You want to **edit, replace, delete, or transform text**.
+
+### Common Commands
+
+```bash
+sed 's/error/ERROR/' file.log      # replace
+sed '1d' file.log                  # delete first line
+sed '/error/d' file.log            # delete matching lines
+sed -n '1,5p' file.log             # print lines 1-5
+```
+
+### Strengths
+
+- Stream editing
+    
+- Good for text cleanup
+    
+
+### Weakness
+
+❌ Bad for structured column data
+
+* * *
+
+## 🔵 awk — “Column Processor + Logic”
+
+**Use when:**  
+You need **fields, conditions, math, headers, logic**.
+
+### Common Commands
+
+```bash
+awk '{print $1}' file              # column 1
+awk '{print $1, $3}' file
+awk '$3 > 100 {print}' file
+awk 'NR==1 || /error/' file        # keep header
+awk -F',' '{print $1,$2}' file     # custom delimiter
+```
+
+### Strengths
+
+- Handles whitespace cleanly
+    
+- Conditions + calculations
+    
+- Best for kubectl output
+    
+
+### Weakness
+
+❌ Slight learning curve
+
+* * *
+
+## 🧩 Side-by-Side Comparison
+
+| Task | grep | sed | awk |
+| --- | --- | --- | --- |
+| Filter lines | ✅   | ✅   | ✅   |
+| Replace text | ❌   | ✅   | ⚠️  |
+| Column selection | ❌   | ❌   | ✅   |
+| Keep headers | ❌   | ⚠️  | ✅   |
+| Math / logic | ❌   | ❌   | ✅   |
+| kubectl output | ❌   | ⚠️  | ✅   |
+
+* * *
+
+## 🚀 Real-World Examples (Very Common)
+
+### Keep header + filter rows
+
+```bash
+kubectl get hpa | awk 'NR==1 || /my-hpa/'
+```
+
+* * *
+
+### Replace text in a file
+
+```bash
+sed 's/dev/prod/g' config.yaml
+```
+
+* * *
+
+### Find error lines
+
+```bash
+grep -i error app.log
+```
+
+* * *
+
+### Filter by column value
+
+```bash
+awk '$5 > 80 {print}' metrics.txt
+```
+
+* * *
+
+## 🧠 Decision Flow (Use This)
+
+Ask yourself:
+
+1️⃣ *Do I just need matching lines?* → **grep**  
+2️⃣ *Do I need to modify text?* → **sed**  
+3️⃣ *Do I need columns or logic?* → **awk**
+
+* * *
+
+## 🔑 Interview-Ready One-Liners
+
+- **grep**: “Used to search and filter lines based on patterns.”
+    
+- **sed**: “Used for stream editing like replacing or deleting text.”
+    
+- **awk**: “Used for column-based processing and conditional logic.”
+    
+
+* * *
+
+## 🧠 Golden Rule (Save This)
+
+> **grep finds, sed edits, awk thinks.**
+
+* * *
+
+If you want:
+
+- One-page printable PDF
+    
+- kubectl-specific awk patterns
+    
+- jq vs awk cheat sheet
+    
+
+Just say 👍
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
 * * *
 
 # Vi Editor Quick Reference

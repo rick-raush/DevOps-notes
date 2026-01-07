@@ -76,6 +76,12 @@ Returns 10.102.45.12 to your Pod
 
 &nbsp;
 
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
 Yes — **the Kubernetes API Server is the single source of truth for all Service and Endpoint mappings.**
 
 Let’s break this down clearly.
@@ -1093,7 +1099,7 @@ You asked:
 
 &nbsp;
 
-✔ How to see Pod IPs from EndpointSlices 
+✔ How to see Pod IPs from EndpointSlices
 
 ✔ How kube-proxy reads EndpointSlices
 
@@ -1621,9 +1627,165 @@ It creates a set of chains prefixed with `KUBE-`:
 | **KUBE-NODEPORTS** | Handles NodePort traffic. Maps NodePort → ClusterIP → endpoints. |
 | **KUBE-EXTERNAL-SERVICES** | For External IPs / LoadBalancer services. |
 
+&nbsp;
+
 * * *
 
 ## 2️⃣ How traffic flows through KUBE chains
+
+&nbsp;
+
+Here’s a **clear, simple, deep explanation** of **KUBE-SEP** DNAT (Destination NAT) in the NodePort → Service → Pod flow.
+
+* * *
+
+# 🔥 **What is `KUBE-SEP-xxxxxxx` and why DNAT happens?**
+
+When you create a **Service** of type **NodePort**, Kubernetes (specifically **kube-proxy**) creates:
+
+- **iptables chains for the Service** → `KUBE-SVC-xxxxx`
+    
+- **iptables chains for each endpoint (Pod IP)** → `KUBE-SEP-xxxxx`
+    
+
+**SEP = Service Endpoint**  
+Each SEP corresponds to **one Pod IP + Pod Port**.
+
+* * *
+
+# 🔵 **Flow Explanation: NodePort → KUBE-SVC → KUBE-SEP → Pod**
+
+Below is the real packet flow:
+
+* * *
+
+## **1️⃣ Client hits Node IP + NodePort**
+
+Example:
+
+```
+curl http://<NodeIP>:30080
+```
+
+Packet arrives in Linux kernel, then hits **iptables NAT PREROUTING**.
+
+* * *
+
+## **2️⃣ iptables jumps into `KUBE-NODEPORTS`**
+
+Kube-proxy already created rules like:
+
+```
+-A PREROUTING -m addrtype --dst-type LOCAL -j KUBE-NODEPORTS
+```
+
+* * *
+
+## **3️⃣ Traffic matches the NodePort rule**
+
+```
+-A KUBE-NODEPORTS -p tcp --dport 30080 -j KUBE-SVC-ABCDE12345
+```
+
+This says:
+
+> For NodePort 30080 → send to this Service chain: `KUBE-SVC-ABCDE…`
+
+* * *
+
+## **4️⃣ `KUBE-SVC-XXXXX` load balances**
+
+The service chain contains load balancing rules:
+
+```
+-A KUBE-SVC-ABCDE12345 -m statistic --mode random --probability 0.5 -j KUBE-SEP-AAAA1111
+-A KUBE-SVC-ABCDE12345 -j KUBE-SEP-BBBB2222
+```
+
+Meaning:
+
+- 50% traffic → Endpoint 1 (`KUBE-SEP-AAAA1111`)
+    
+- 50% → Endpoint 2 (`KUBE-SEP-BBBB2222`)
+    
+
+This is kube-proxy doing round-robin.
+
+* * *
+
+## **5️⃣ Packet jumps to a specific `KUBE-SEP-xxxxx`**
+
+Example:
+
+```
+-A KUBE-SEP-AAAA1111 -j DNAT --to-destination 10.2.3.45:8080
+```
+
+This is the MOST important step.
+
+* * *
+
+# 🟥 **So what does the DNAT line actually do?**
+
+### **It rewrites the destination IP:Port of the packet.**
+
+Before DNAT:
+
+```
+destination = <NodeIP>:30080
+```
+
+After DNAT at KUBE-SEP:
+
+```
+destination = 10.2.3.45:8080  (Pod IP: Pod Port)
+```
+
+Meaning:
+
+> **iptables changes the packet’s destination from the NodePort → real Pod IP.**
+
+This is how NodePort magically sends traffic to the correct Pod.
+
+* * *
+
+# 🧠 **Why DNAT?**
+
+Because:
+
+- The client sends traffic to **NodeIP:NodePort**
+    
+- But the Pod actually lives at **PodIP:TargetPort**
+    
+
+So kernel must **rewrite the packet** so that it reaches the Pod.
+
+* * *
+
+# 🟢 **Flow Summary (Very Simple)**
+
+| Step | Component | What Happens |
+| --- | --- | --- |
+| 1   | NodePort | Receive packet |
+| 2   | KUBE-NODEPORTS | Map NodePort → Service |
+| 3   | KUBE-SVC | Pick a Pod (load balance) |
+| 4   | KUBE-SEP | DNAT to Pod IP |
+| 5   | Pod | Receives packet |
+
+* * *
+
+# 📌 Final Answer to Your Specific Line
+
+### **“KUBE-SEP-YYYY DNATs packet → actual Pod IP:Port” means:**
+
+The iptables rule rewrites the packet header so that:
+
+- destination **NodeIP:NodePort**
+    
+- becomes **PodIP:PodPort**
+    
+
+This is done inside a chain named `KUBE-SEP-*` which Kubernetes auto-generates per Pod.
 
 Let’s say a Pod calls **ClusterIP 10.102.45.12:8080**.
 
@@ -1683,6 +1845,48 @@ If you want, I can make a **small diagram showing KUBE-SERVICES → KUBE-SVC →
 Do you want me to do that?
 
 &nbsp;
+
+&nbsp;
+
+# 🟩 **Put Simply**
+
+| Networking Component | Responsibility |
+| --- | --- |
+| **CoreDNS** | Convert service name → ClusterIP |
+| **iptables (KUBE-SVC, KUBE-SEP)** | Convert ClusterIP/NodePort → Pod IP |
+| **kube-proxy** | Programs iptables rules |
+
+They operate at **completely different layers**.
+
+* * *
+
+# 🧠 **Example — where CoreDNS stops**
+
+1.  App:
+    
+    `GET http://reviews.default.svc.cluster.local`
+    
+2.  DNS lookup (CoreDNS):
+    
+    `reviews.default → 10.96.88.10`
+    
+3.  From here:
+    
+    `packet → iptables → KUBE-SVC → KUBE-SEP → PodIP`
+    
+
+CoreDNS **is NOT part of routing** from this point.
+
+* * *
+
+# ⭐ **Answer to your question:**
+
+> **“So in these chains, where is the use of CoreDNS?”**
+
+❌ NOWHERE.  
+CoreDNS is **not part of iptables chains**, **not used by KUBE-SVC**, **not used by KUBE-SEP**, **not used by NodePort**, **not used by kube-proxy**.
+
+✔ CoreDNS is only used **before traffic** — at the name lookup stage.
 
 &nbsp;
 

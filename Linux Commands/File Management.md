@@ -289,3 +289,46 @@ ls -l file.txt file_hardlink.txt shortcut.txt
 | **`ls -lh`** | **List File Details & Size** | Lists the contents of a directory, showing the **size of individual files** in a human-readable format. | **`-l`**: **Long listing** (shows permissions, owner, date, and size).  <br><br/><br/><br/>**`-h`**: **Human-readable** (K, M, G). |
 | **`ls -i`** | **List Inode Numbers** | Lists the contents of a directory, showing the unique **inode number** associated with each file or directory. | **`-i`**: Displays the **inode number** in the first column. |
 | **`df -ih`** | **Check Disk Partition Usage** | Displays the amount of **free and used disk space** and **inode usage** across all mounted file systems (partitions). | **`-i`**: Reports **inode usage** (instead of block usage).  <br><br/><br/><br/>**`-h`**: **Human-readable** (K, M, G). |
+
+&nbsp;
+
+&nbsp;
+
+### ✅ Filesystem and Mounted On
+
+- **Filesystem** = *where storage comes from*
+    
+    - Disk → `/dev/nvme0n1p1`
+        
+    - Memory → `tmpfs`, `devtmpfs`
+        
+    - Virtual → `proc`, `sysfs`
+        
+- **Mounted on** = *directory path where that storage is attached*
+    
+
+* * *
+
+### 🔹 Key idea
+
+Linux has **one directory tree (`/`)**.  
+Different filesystems are **mounted into directories** inside it.
+
+* * *
+
+### 🔹 Examples
+
+- `tmpfs` → memory → mounted on `/run`
+    
+- `devtmpfs` → memory → mounted on `/dev`
+    
+- `/dev/nvme0n1p1` → disk → mounted on `/`
+    
+
+* * *
+
+### 🔑 One-line rule
+
+> **Filesystem = storage source | Mounted on = directory location**
+
+That’s it.
