@@ -242,7 +242,7 @@ variable "vpc_region" {
 }
 ```
 
-2.  **Source block** – defines the builder (like `amazon-ebs`) and all its configuration:
+2.  **Source block** – defines the **builder** (like `amazon-ebs`) and all its configuration:
 
 ```hcl
 source "amazon-ebs" "ubuntu" {
@@ -259,7 +259,7 @@ source "amazon-ebs" "ubuntu" {
 }
 ```
 
-3.  **Build block** – references the source and includes provisioners and post-processors:
+3.  **Build block** – references the source and includes **provisioners** and **post-processors**:
 
 ```hcl
 build {
