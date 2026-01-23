@@ -1,4 +1,17 @@
-Got it 👍  
+Architectural Workflow
+
+1.  **Request Arrival**: A client sends an HTTP request to the NGINX load balancer.
+2.  **Lua Script Execution**: NGINX triggers a Lua script (using `access_by_lua`) before processing the request. This script extracts a unique identifier, such as the client’s IP address or an API key.
+3.  **Redis Check**: The script connects to the **Redis Cluster** and performs an atomic operation, such as `INCR` (increment) on a key associated with the client ID and the current time window.
+4.  **Policy Enforcement**:
+    - **Within Limit**: If the count is below the threshold, Redis returns the new count, and NGINX forwards the request to the backend application.
+    - **Exceeded Limit**: If the count exceeds the threshold, NGINX immediately terminates the request and returns a **429 Too Many Requests** error to the client.
+5.  **Data Expiry**: Redis uses `EXPIRE` commands to automatically clear old counters, ensuring the rate limit resets after the specified window (e.g., every minute).
+
+&nbsp;
+
+&nbsp;
+
 Here’s a **clean, structured summary of everything we covered in this entire chat**, from **Aerospike vs Redis** all the way to **race conditions and deadlocks** — written so you can revise it before interviews or use it as a mental map.
 
 * * *
