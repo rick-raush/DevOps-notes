@@ -240,3 +240,188 @@ Think of it like a **lock and key**:
 &nbsp;
 
 &nbsp;
+
+## OAuth 2.0 Summary including client_id and secret
+
+### Key Entities
+
+- **User (Resource Owner)** → Person using the application.
+    
+- **Client** → Application requesting access (web app, mobile app, backend service).
+    
+- **Authorization Server** → OAuth provider (e.g., Keycloak, Auth0, Google).
+    
+- **Resource Server** → API being accessed.
+    
+
+* * *
+
+### What is `client_id`?
+
+`client_id` identifies the **application**, not the user.
+
+Example:
+
+```text
+client_id = web-app-123
+```
+
+OAuth uses it to:
+
+- Identify the application making the request.
+    
+- Validate redirect URIs.
+    
+- Apply client-specific policies/scopes.
+    
+- Show the application's name on the consent screen.
+    
+- Associate issued tokens with that application.
+    
+    ex : {  
+      "sub": "user123",  
+      "client_id": "web-app-123",  
+      "scope": "profile"  
+    }
+    
+
+`client_id` is **public** and can safely appear in URLs, browser code, mobile apps, etc.
+
+* * *
+
+### What is `client_secret`?
+
+`client_secret` proves the application's identity.
+
+Example:
+
+```text
+client_id     = web-app-123
+client_secret = super-secret
+```
+
+It must remain private and should only exist on servers you control.
+
+* * *
+
+### Public vs Confidential Clients
+
+| Client Type | Example | Can Keep Secret? |
+| --- | --- | --- |
+| Public | React SPA, Angular SPA, Android App, iOS App, Desktop App | No  |
+| Confidential | Backend service, Java app, Node.js API, Go service | Yes |
+
+* * *
+
+### Why can't SPAs use a client secret?
+
+A **SPA (Single Page Application)** runs in the user's browser.
+
+Examples:
+
+- React
+    
+- Angular
+    
+- Vue
+    
+
+Since the browser downloads all application code:
+
+```text
+Browser → JavaScript → User can inspect it
+```
+
+Any embedded secret can be extracted.
+
+Therefore SPAs are treated as **public clients**.
+
+* * *
+
+### What are React and Angular?
+
+Tools used to build modern web applications:
+
+- **React** → UI library.
+    
+- **Angular** → Full web framework.
+    
+
+Both commonly build SPAs where the page loads once and then communicates with APIs without full page reloads.
+
+* * *
+
+### Mobile and Desktop Apps
+
+Although they don't run in a browser, they still run on the user's device.
+
+Users can:
+
+- Decompile mobile apps.
+    
+- Reverse engineer desktop applications.
+    
+
+Therefore OAuth also treats them as **public clients**.
+
+* * *
+
+### Typical OAuth Flows
+
+#### Public Clients (SPA/Mobile/Desktop)
+
+Use:
+
+```text
+Authorization Code Flow + PKCE
+```
+
+Authentication:
+
+```text
+client_id ✓
+client_secret ✗
+```
+
+* * *
+
+#### Confidential Clients (Backend Services)
+
+Use:
+
+```text
+Authorization Code Flow
+```
+
+Authentication:
+
+```text
+client_id ✓
+client_secret ✓
+```
+
+* * *
+
+### Mental Model
+
+```text
+User        = Who is granting access
+client_id   = Which application is asking
+client_secret = Proof that the application is genuine
+access token = What permissions were granted
+```
+
+In short:
+
+- `client_id` identifies the application.
+    
+- `client_secret` authenticates the application.
+    
+- Browser, mobile, and desktop apps are **public clients** and cannot securely store secrets.
+    
+- Backend services are **confidential clients** and can securely use `client_secret`.
+    
+- Public clients typically use **OAuth Authorization Code Flow with PKCE**.
+    
+
+&nbsp;
